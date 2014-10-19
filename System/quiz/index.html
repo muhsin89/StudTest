@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bootstrap 101 Template</title>
+
+    <!-- Bootstrap -->
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+
+
+    <script>
+
+        var db = openDatabase('StudTest', '1.0', 'DB of StudTest', 2 * 1024 * 1024);
+
+        db.transaction(function (tx) {
+            tx.executeSql('CREATE TABLE IF NOT EXISTS LEVEL (id primary key unique, name)');
+            tx.executeSql('CREATE TABLE IF NOT EXISTS CLASS (id primary key unique, name, level_id)');
+            tx.executeSql('CREATE TABLE IF NOT EXISTS SUBJECT (id primary key unique, name, class_id)');
+            tx.executeSql('CREATE TABLE IF NOT EXISTS SECTION (id primary key unique, name, subject_id)');
+            tx.executeSql('CREATE TABLE IF NOT EXISTS QUESTION (id primary key unique, text, description, subject_id, section_id, user_id, date)');
+            tx.executeSql('CREATE TABLE IF NOT EXISTS ANSWER (id primary key unique, text, correct, question_id)');
+           // tx.executeSql('INSERT INTO FAG (id,navn,level_id) VALUES (?,?,?)',["6", "adss", "3"]);
+
+        });
+
+
+        $(document).ready(function(){
+
+            $.ajax({
+                url: 'http://folk.ntnu.no/gunaydin/index.php',
+                type: 'POST',
+                data: {action:'level'},
+                dataType: 'JSON',
+                timeout: 5000,
+                success: function(data, status){
+                        console.log(data);
+                            var values = "VALUES (";
+                            var query, rows = "";
+                            var val =[];
+                            for(var key in data){
+                                var queryStart = "INSERT OR REPLACE INTO " + key.toUpperCase() + " (";
+                                var table = data[key];
+                                for(var i=0; i<table.length; i++ ){
+                                    var row = table[i];
+                                    for(var rowId in row){
+                                        rows+=rowId+",";
+                                        values+="?,";
+                                        val.push(row[rowId]);
+                                    }
+                                    rows = rows.substr(0, rows.length-1);
+                                    values = values.substr(0, values.length-1);
+                                    var query =queryStart+rows+") "+ values +")";
+                                    console.log(query);
+                                    console.log(val);
+                                    insert(query,val);
+                                    rows ="";
+                                    var values = "VALUES (";
+                                    val=[];
+                                }
+                            }
+
+                        getLevels();
+                },
+                error: function(){
+                    output.text('There was an error loading the data.');
+                }
+            });
+        });
+
+
+        function insert(sql, values){
+            db.transaction(function (tx) {
+                tx.executeSql(sql, values, function (tx, result) {
+                    console.log('record added');
+                }, onError);
+            });
+
+            return;
+        }
+
+
+
+        function onError() {
+            console.log('Not added');
+
+        }
+
+        function nothingFound(){
+            $('#dynamicDiv').append('<h2>Ingenting er registrert her</h2>');
+
+
+        }
+
+        function makeQuery(query, callBack){
+            var results = [];
+            db.transaction(function (tx) {
+                tx.executeSql(query, [], function(tx, rs){
+                    for(var i=0; i<rs.rows.length; i++) {
+                        var row = rs.rows.item(i)
+                        results[i] = { id: row['id'],
+                            name: row['name']
+                        }
+                    }
+                    callBack(results); // <-- new bit here
+                }, onError());
+            });
+
+        }
+
+
+
+        function getLevels(){
+            db.transaction(function (tx) {
+                tx.executeSql('SELECT * FROM LEVEL', [], function (tx, results){
+                    var len = results.rows.length, i;
+                    $('#dynamicDiv').empty();
+//                    $('#dynamicDiv').append('<div class="jumbotron text-center" id="jumbotron">');
+
+                    $('#dynamicDiv').append('<div id="mainRow" class="row">');
+                    $('#mainRow').append('<div id="mainPanel" class="panel panel-default text-center">');
+                    $('#mainPanel').append('<div id="panel-heading" class="panel-heading">');
+                    $('#mainPanel').append('<div id="panel-body" class="panel-body">');
+                    $('#mainPanel').append('<div class="panel-footer" id="panel-footer">');
+
+                    $('#panel-heading').append('<h3 class="panel-title" id="panel-title">Velg Nivå</h3>');
+                    $('#panel-footer').append('<h4>');
+
+
+                    $('#navClassPlace').remove();
+
+                    if(len==0)
+                    {
+                        $('#panel-body').append('<h2>Det er ingen fag registrert</h2>');
+                        return;
+                    }
+                    else
+                    {
+//                        $('#jumbotron').append('<h2>Velg nivå</h2>');
+                        $('#panel-body').append('<div class="btn-group-vertical" id="levels">');
+
+
+                        for (i = 0; i < len; i++){
+                            var navn = results.rows.item(i)['name'];
+                            var id = results.rows.item(i)['id'];
+                            $('#levels').append('<button type="button" class="btn btn-lg btn-default" id="'+id+'">'+navn+'</button>');
+                        }
+                            $('#levels button').each(function(){
+                               var id = $(this).attr('id');
+                               $(this).click(function(){
+                                   getClasses(id);
+                               });
+                            });
+
+                    }
+
+                },null);
+            });
+        }
+
+
+
+        function getClasses(level_id){
+            db.transaction(function (tx) {
+                tx.executeSql("SELECT class.id,class.name,level.name as lname FROM class JOIN level ON class.level_id= level.id WHERE level_id='"+level_id+"'", [], function (tx, results){
+                    var len = results.rows.length, i;
+                    $('#panel-body').empty();
+                    if(len==0)
+                    {
+                        $('#panel-body').append('<h2>Det finnes ingen kategorier her</h2>');
+                        $('#panel-body').append('<a class="btn btn-lg btn-default" href="#" onclick="getLevels()">Tilbake</a>');
+                        return;
+                    }
+                    else
+                    {
+                        var lnavn = results.rows.item(0)['lname'];
+
+                        $("#panel-heading h3").text('Velg klasse');
+                        $('#panel-footer h4').text(lnavn);
+                        $('#mainNavigator').append('<button type="button" class="btn btn-default" id="navClassPlace">'+lnavn+'</button>');
+                        $('#navSubjectPlace').remove();
+
+                        $('#panel-heading').append('<span class="btn-topleft"><button class="btn btn-primary" data-toggle="modal" data-target=".bs-example-modal-sm" id="back">&laquo</button></span>');
+
+
+                        $('#panel-body').append('<div class="btn-group-vertical" id="classes">');
+
+
+                        for (i = 0; i < len; i++){
+                            var navn = results.rows.item(i)['name'];
+                            var id = results.rows.item(i)['id'];
+                            $('#classes').append('<button type="button" class="btn btn-lg btn-default" id="'+id+'">'+navn+'</button>');
+                        }
+
+                        $('#classes button').each(function(){
+                            var id = $(this).attr('id');
+                            $(this).click(function(){
+                                getSubjects(id,level_id);
+                            });
+                        });
+
+
+
+                        $('#back').click(function(){
+                            getLevels()
+                        });
+                    }
+
+                },null);
+            });
+        }
+
+        function getSubjects(class_id, level_id){
+            db.transaction(function (tx) {
+                tx.executeSql("SELECT subject.id, subject.name, class.name as cname FROM subject JOIN class on subject.class_id = class.id WHERE subject.class_id='"+class_id+"'", [], function (tx, results){
+                    var len = results.rows.length, i;
+                    $('#panel-body').empty();
+                    if(len==0){
+                        $('#panel-body').append('<h2>Ingen fag er registrert</h2>');
+                    } else {
+                        var cnavn = results.rows.item(0)['cname'];
+
+                        $("#panel-heading h3").text('Velg fag');
+                        $('#panel-footer h4').text(cnavn);
+                        $('#mainNavigator').append('<button type="button" class="btn btn-default" id="navSubjectPlace">'+cnavn+'</button>');
+
+
+                        $('#panel-body').append('<div class="btn-group-vertical" id="subjects">');
+
+                        for (i = 0; i < len; i++){
+                            var navn = results.rows.item(i)['name'];
+                            var id = results.rows.item(i)['id'];
+                            $('#subjects').append('<button type="button" class="btn btn-lg btn-default" id="'+id+'">'+navn+'</button>');
+
+                        }
+                        $('#subjects button').each(function(){
+                            var id = $(this).attr('id');
+                            $(this).click(function(){
+                                getSections(id,class_id,level_id);
+                            });
+                        });
+
+                    }
+                    $('#back').click(function(){
+                        getClasses(level_id);
+                    });
+                },null);
+            });
+        }
+
+        function getSections(subject_id, class_id, level_id){
+            db.transaction(function (tx) {
+                tx.executeSql("SELECT section.id, section.name, subject.name AS sname FROM section JOIN subject ON section.subject_id = subject.id WHERE subject_id='"+subject_id+"'", [], function (tx, results){
+                    var len = results.rows.length, i;
+                    $('#panel-body').empty();
+                    if(len==0) {
+                        $('#panel-body').append('<h2>Ingen tema er registrert</h2>');
+                    } else {
+                        var snavn = results.rows.item(0)['sname'];
+
+                        $("#panel-heading h3").text('Velg tema');
+                        $('#panel-footer h4').text(snavn);
+
+                        $('#mainNavigator').append('<button type="button" class="btn btn-default" id="navSubjectPlace">'+snavn+'</button>');
+
+
+
+                        $('#panel-body').append('<div class="btn-group-vertical" id="sections">');
+
+                        $('#sections').append('<a class="btn btn-lg btn-default" id="getAllQuestions"">Alle</a>');
+                        for (i = 0; i < len; i++){
+                            var navn = results.rows.item(i)['name'];
+                            var id = results.rows.item(i)['id'];
+                            $('#sections').append('<button type="button" class="btn btn-lg btn-default" id="'+id+'">'+navn+'</button>');
+                        }
+                        $('#sections button').each(function(){
+                            var id = $(this).attr('id');
+                            $(this).click(function(){
+                                getQuestionIds(id,subject_id);
+                            });
+                        });
+
+                        $("#getAllQuestions").click(function(){
+                            getQuestionIds(-1,subject_id);
+                        });
+                    }
+                    $('#back').click(function(){
+                        getSubjects(class_id,level_id);
+                    });
+
+                },null);
+            });
+        }
+
+
+        function getQuestionIds(section_id, subject_id){
+            var ids = [];
+            var query = "Select id FROM question where subject_id='"+subject_id+"'";
+            if(section_id!=-1){
+                query+= " AND section_id='"+section_id+"'";
+            }
+
+            db.transaction(function (tx) {
+                tx.executeSql(query, [], function (tx, results){
+                    var len = results.rows.length, i;
+                    if(len==0) {
+                        $('#panel-body').append('<h2>Fant ingenting</h2>');
+                    } else{
+
+                        for (i = 0; i < len; i++){
+                            ids.push({id:results.rows.item(i)['id'], answered:false, answerId:null, correct:false});
+                        }
+
+                        ids = shuffle(ids);
+                        getQuestion(ids, 0);
+                    }
+
+                },null);
+            });
+
+        }
+
+        function shuffle(array) {
+            var tmp, current, top = array.length;
+
+            if(top) while(--top) {
+                current = Math.floor(Math.random() * (top + 1));
+                tmp = array[current];
+                array[current] = array[top];
+                array[top] = tmp;
+            }
+
+            return array;
+        }
+
+        function getQuestion(ids, index) {
+            console.log(ids);
+            db.transaction(function (tx) {
+                tx.executeSql("SELECT  question.id as id, question.text, description, answer.text as ans, answer.id as aid, correct  FROM QUESTION, ANSWER WHERE question.id=question_id and question.id='"+ids[index].id+"'", [], function (tx, results){
+                    var len = results.rows.length, i;
+                    $('#panel-body').empty();
+                    if (len == 0) {
+                        $('#panel-body').append('<h2>Ingen spørsmål funnet</h2>');
+                        return;
+                    }else{
+                        $('#panel-heading').empty();
+
+
+                        var id = results.rows.item(0)['id'];
+                        var question = results.rows.item(0)['text'];
+                        var description = results.rows.item(0)['description'];
+
+                        $('#dynamicDiv').append('<div id="mainRow" class="row">');
+
+
+                        $('#panel-heading').append('<h3 class="panel-title"><small>'+(parseInt(index,10)+1)+'</small> '+question+'</h3>');
+                        $('#panel-heading').append('<span class="btn-clipboard"><button class="btn btn-danger btn-sm" data-toggle="modal" data-target=".bs-example-modal-sm" id="exit">X</button></span>');
+
+
+//                        $('#mainRow').append('<h2> <small>'+(parseInt(index,10)+1)+'.</small> '+question+'</h2>');
+                        $('#panel-body').append('<div class="list-group" id="alternatives">');
+
+                        for (i = 0; i < len; i++){
+                            var answer = results.rows.item(i)['ans'];
+                            var aid = results.rows.item(i)['aid'];
+                            $('#alternatives').append('<a id="'+aid+'" class="list-group-item">'+answer+'</a>');
+                        }
+
+
+
+
+                        if(ids[index].answered){
+                            answerQuestion(id, ids[index].answerId,description);
+                        } else {
+                            $('#panel-body a').each(function(){
+                                var answer_id = $(this).attr('id');
+                                $(this).click(function(){
+                                   var correct = answerQuestion(id,answer_id,description);
+                                    ids[index].answered = 1;
+                                    ids[index].answerId = answer_id;
+                                    ids[index].correct = correct;
+                                });
+                            });
+                        }
+
+                        $('#panel-footer').empty();
+                        $('#panel-footer').append('<ul id="navigation" class="pagination">');
+
+
+                        if(index!=0){
+                            $('#navigation').append('<li><a id="'+(parseInt(index,10)-1)+'""><span>&laquo;</span></a></li>');
+                        } else {
+                            $('#navigation').append('<li class="disabled"><span>&laquo;</span></li>');
+                        }
+
+                        for(i=0;i<ids.length;i++){
+                            var place = i+1;
+                            if(i==index){
+                                $('#navigation').append('<li class="active"><a id="'+i+'"">'+place+'</a></li>');
+                            }else{
+                                if(ids[i].correct){
+                                $('#navigation').append('<li><a style="color:green" id="'+i+'"">'+place+'</a></li>');
+                                } else {
+                                    $('#navigation').append('<li><a id="' + i + '"">' + place + '</a></li>');
+                                }
+                            }
+                        }
+
+                        if(index!=ids.length-1){
+                            $('#navigation').append('<li><a id="'+(parseInt(index,10)+1)+'""><span>&raquo;</span></a></li>');
+                        } else{
+                            $('#navigation').append('<li class="disabled"><span>&raquo;</span></li>');
+
+                        }
+
+
+                        $('#navigation li a').each(function(){
+                            var id = $(this).attr('id');
+                            $(this).click(function(){
+                                getQuestion(ids,id);
+                            });
+                        });
+
+                        $("#exit").click(function(){
+                            getLevels();
+                        });
+
+                    }
+
+                },null);
+            });
+        }
+
+        function answerQuestion(question_id, answer_id, description){
+            var correctAnswer = true;
+            db.transaction(function (tx) {
+                tx.executeSql("SELECT id, correct FROM ANSWER where question_id='"+question_id+"'", [], function (tx, results){
+                    var len = results.rows.length, i;
+                    var correctId = 0;
+                    if(len==0){
+                        console.log(len);
+                    } else {
+                        for (i = 0; i < len; i++){
+                            var id = results.rows.item(i)['id'];
+                            var correct = results.rows.item(i)['correct'];
+                            if(correct==1){
+                                correctId=id;
+                            }
+                        }
+
+                        if(answer_id!=correctId){
+                                $('#'+answer_id).attr("class", "list-group-item list-group-item-danger");
+                                correctAnswer = false;
+                        }
+                        $('#'+correctId).attr("class", "list-group-item list-group-item-success");
+
+                        if(description!='') {
+                            $('#dynamicDiv').append('<br>');
+                            $('#panel-body').append('<div class="alert alert-info" role="alert">' + description + '</div>');
+                        }
+
+                        $('#alternatives a').each(function(){
+                            $(this).unbind('click');
+                        });
+
+                        }
+                    // $('#dynamicDiv').append('<a class="btn btn-lg btn-default" href="#" onclick="getSubjects('+class_id+','+level_id+')">Tilbake</a>');
+
+                },null);
+            });
+            return correctAnswer;
+        }
+
+
+    </script>
+</head>
+<body>
+
+    <div class="navbar navbar-inverse navbar-static-top">
+        <div class="container">
+        <div class="navbar-header">
+            <button class="navbar-toggle" data-toggle = "collapse" data-target=".navHeaderCollapse">
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class = "navbar-brand" href="#">StudTest</a>
+        </div>
+        <div class="collapse navbar-collapse navHeaderCollapse">
+
+            <ul class="nav navbar-nav navbar-right">
+
+                <li><a href="#">Home</a></li>
+                <li><a href="#">Om</a></li>
+                <li><a href="#">Admin</a></li>
+            </ul>
+
+        </div>
+
+
+        </div>
+
+    </div>
+
+    <div class="container">
+
+        <div class="row" id="dynamicHeader">
+            <div class="col-md-6">
+                <div class="btn-group btn-group-sm" id="mainNavigator">
+                    <button type="button" class="btn btn-default">Main</button>
+
+                </div>
+
+
+
+            </div>
+
+            <div class="col-md-6 text-right">
+
+
+            </div>
+        </div>
+
+        <div class="row">
+
+
+            <!--<div class="jumbotron text-center">-->
+
+
+            <!--</div>-->
+
+                <div id="dynamicDiv" class="container">
+
+                </div>
+
+
+        </div>
+
+
+
+
+    </div>
+
+
+
+
+
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="../js/bootstrap.min.js"></script>
+
+</body>
+</html>
+
+
