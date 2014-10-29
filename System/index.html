@@ -15,74 +15,579 @@
     <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
     <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
     <![endif]-->
+    <script src="js/jquery.min.js"></script>
+
+
+    <script>
+
+    var db = openDatabase('StudTest', '1.0', 'DB of StudTest', 2 * 1024 * 1024);
+    var globalVar = {};
+    globalVar['level'] = {id:null, name:null};
+    globalVar['class'] = {id:null, name:null};
+    globalVar['subject'] = {id:null, name:null};
+    globalVar['section'] = {id:null, name:null};
+    var current = 'level';
+    var questions = [];
+
+        $(document).ready(function(){
+            start();
+        });
+
+
+        function start(){
+            $('#dynamicDiv').empty();
+            $('#dynamicDiv').append('<div id="jumbo" class="jumbotron text-center">');
+            $('#jumbo').append('<h2>StudTest <small>Beta</small></h2>');
+            $('#jumbo').append('<p>Begynn å løs oppgaver ved å trykke på start. <br>Trykk på oppdater data for å laste ned oppgavene</p>');
+            $('#jumbo').append('<p><a class="btn btn-primary btn-lg" role="button" id="start"">Start</a></p>');
+            $('#jumbo').append('<button class="btn btn-primary btn-lg" role="button"  id="updatedb" >Oppdater data</button>');
+            $('#jumbo').append('<p></p>');
+
+            $("#updatedb").on('click', function(){
+                var btn = $(this);
+                btn.button('loading');
+                loadDatabase();
+                btn.button('reset');
+            });
+
+            $("#start").on('click', function(){
+                getLevels();
+            });
+
+
+
+        }
+
+        function loadDatabase(start){
+
+            db.transaction(function (tx) {
+                tx.executeSql('CREATE TABLE IF NOT EXISTS LEVEL (id primary key unique, name)');
+                tx.executeSql('CREATE TABLE IF NOT EXISTS CLASS (id primary key unique, name, level_id)');
+                tx.executeSql('CREATE TABLE IF NOT EXISTS SUBJECT (id primary key unique, name, class_id)');
+                tx.executeSql('CREATE TABLE IF NOT EXISTS SECTION (id primary key unique, name, subject_id)');
+                tx.executeSql('CREATE TABLE IF NOT EXISTS QUESTION (id primary key unique, text, description, subject_id, section_id, user_id, date)');
+                tx.executeSql('CREATE TABLE IF NOT EXISTS ANSWER (id primary key unique, text, correct, question_id)');
+                // tx.executeSql('INSERT INTO FAG (id,navn,level_id) VALUES (?,?,?)',["6", "adss", "3"]);
+
+            });
+
+            $.ajax({
+                url: 'http://folk.ntnu.no/gunaydin/index.php',
+                type: 'POST',
+                data: {action:'level'},
+                dataType: 'JSON',
+                timeout: 5000,
+                success: function(data, status){
+                    console.log(data);
+                    var values = "VALUES (";
+                    var query, rows = "";
+                    var val =[];
+                    for(var key in data){
+                        var queryStart = "INSERT OR REPLACE INTO " + key.toUpperCase() + " (";
+                        var table = data[key];
+                        for(var i=0; i<table.length; i++ ){
+                            var row = table[i];
+                            for(var rowId in row){
+                                rows+=rowId+",";
+                                values+="?,";
+                                val.push(row[rowId]);
+                            }
+                            rows = rows.substr(0, rows.length-1);
+                            values = values.substr(0, values.length-1);
+                            var query =queryStart+rows+") "+ values +")";
+                            console.log(query);
+                            console.log(val);
+                            insert(query,val);
+                            rows ="";
+                            var values = "VALUES (";
+                            val=[];
+                        }
+                    }
+                    $('#updatedb').text('Data har blitt oppdatert');
+                    $('#updatedb').attr('disabled', 'true');
+
+                    if(start)getLevels();
+
+                },
+                error: function(xhr, tStatus, err ){
+                    $('#dynamicDiv').empty();
+                    $('#dynamicDiv').append('<div id="jumbo" class="jumbotron text-center">');
+                    $('#jumbo').empty();
+                    $('#jumbo').append('<h3>Kunne ikke hente data</h3>');
+                    if(xhr.status==0){
+                        $('#jumbo').append('<p>Ingen tilkobling</p>');
+                    } else{
+                        $('#jumbo').append('<p>Det har oppstått en feil</p>');
+                    }
+                    $('#jumbo').append('<p><a class="btn btn-primary btn-lg" role="button" onclick="start();">Tilbake</a></p>');
+
+                }
+            });
+        }
+
+
+
+        function insert(sql, values){
+            db.transaction(function (tx) {
+                tx.executeSql(sql, values, function (tx, result) {
+                    console.log('record added');
+                }, onError);
+            });
+
+            return;
+        }
+
+
+
+        function onError() {
+            console.log('Not added');
+
+        }
+
+        function nothingFound(){
+            $('#dynamicDiv').append('<h2>Ingenting er registrert her</h2>');
+
+
+        }
+
+
+        function getLevels(){
+            $('#dynamicDiv').empty();
+
+
+            $('#dynamicDiv').append('<div id="mainRow" class="row">');
+            $('#mainRow').append('<div id="mainPanel" class="panel panel-default text-center">');
+            $('#mainPanel').append('<div id="panel-heading" class="panel-heading">');
+            $('#mainPanel').append('<div id="panel-body" class="panel-body">');
+            $('#mainPanel').append('<div class="panel-footer" id="panel-footer">');
+
+            $('#panel-heading').append('<h3 class="panel-title" id="panel-title">Velg Nivå</h3>');
+            $('#panel-heading').append('<span class="btn-topleft" id="backbutton"></span>');
+
+            $('#panel-footer').append('<h4>');
+            db.transaction(queryDB);
+        }
+
+
+
+        function getNextMenu(next){
+            switch (current){
+                case "level":
+                    if(next)return "class";
+                    else return null;
+                case "class":
+                    if(next)return "subject";
+                    else return "level";
+                case "subject":
+                    if(next)return "section";
+                    else return "class";
+                case "section":
+                    if(next)return "question";
+                    else return "subject";
+            }
+
+        }
+
+        function getHeader(){
+            switch (current){
+                case "level":
+                    return 'Velg nivå';
+                case "class":
+                    return 'Velg klasse';
+                case "subject":
+                    return 'Velg fag';
+                case "section":
+                    return 'Velg tema';
+
+            }
+        }
+
+        function queryDB(tx){
+            var sql = '';
+            switch (current) {
+                case 'level':
+                    sql = "SELECT * FROM LEVEL";
+                    break;
+                case "class":
+                    sql = "SELECT class.id,class.name FROM class WHERE level_id='" + globalVar['level'].id+"'";
+                    break;
+                case "subject":
+                    sql = "SELECT subject.id, subject.name FROM subject WHERE class_id='" + globalVar['class'].id+"'";
+                    break;
+                case "section":
+                    sql = "SELECT section.id, section.name FROM section WHERE subject_id='" + globalVar['subject'].id+"'";
+                    break;
+                case "question":
+                    getQuestionIds();
+                    return;
+            }
+            tx.executeSql(sql,[], querySuccess, queryError);
+        }
+
+        function querySuccess(tx, results){
+            var prevMenu = getNextMenu(false);
+            var sname = '';
+            if(prevMenu){
+                sname = globalVar[prevMenu].name;
+            }
+            $('#panel-footer h4').text(sname);
+
+
+            var len = results.rows.length, i;
+            $('#panel-body').empty();
+            if (len == 0) {
+                    $('#panel-body').append('<h2>Ingenting funnet</h2>');
+            } else {
+                $("#panel-title").text(getHeader());
+                $('#panel-body').append('<div class="btn-group-vertical" id="' + current + '">');
+
+                if(current=="section"){
+                    $('#' + current).append('<button type="button" class="btn btn-xlg btn-default" value=" " id="-1">Alle</button>');
+                }
+
+                for (i = 0; i < len; i++) {
+                    var navn = results.rows.item(i)['name'];
+                    var id = results.rows.item(i)['id'];
+                    $('#' + current).append('<button type="button" class="btn btn-xlg btn-default" value="' + navn + '" id="' + id + '">' + navn + '</button>');
+                }
+
+                $('#' + current + ' button').each(function () {
+                    var id = $(this).attr('id');
+                    var name = $(this).attr('value');
+                    $(this).click(function () {
+                        globalVar[current].id = id;
+                        globalVar[current].name = name;
+                        current = getNextMenu(true);
+                        db.transaction(queryDB);
+                    });
+                });
+            }
+            $('#backbutton').empty();
+            if(prevMenu) {
+                $('#backbutton').append('<button class="btn btn-primary btn-lg" id="' + current + 'back">&laquo</button>');
+                $('#' + current + 'back').on('click', function () {
+                    current = prevMenu;
+                    db.transaction(queryDB);
+                });
+            }
+        }
+
+        function queryError(err){
+            console.log(err.code);
+            $("#panel-title").text('Ingen data funnet på enheten. Du må laste ned oppgavene for å starte(krever internett tilkobling)');
+            $('#panel-body').append('<button type="button" class="btn btn-default btn-lg" id="updatedb"">Last ned oppgaver</button>');
+
+
+
+            $("#updatedb").on('click', function(){
+                var btn = $(this);
+                btn.button('loading');
+                loadDatabase(true);
+
+            });
+
+
+
+
+        }
+
+
+        function getQuestionIds(section_id){
+            console.log(globalVar);
+            var subject_id = globalVar['subject'].id;
+            var section_id = globalVar['section'].id;
+            var query = "Select id FROM question where subject_id='"+subject_id+"'";
+            if(section_id!=-1){
+                query+= " AND section_id='"+section_id+"'";
+            }
+            $('#panel-body').empty();
+
+            db.transaction(function (tx) {
+                tx.executeSql(query, [], function (tx, results){
+                    var len = results.rows.length, i;
+                    if(len==0) {
+                        $('#panel-body').append('<h2>Fant ingenting</h2>');
+                    } else{
+
+                        for (i = 0; i < len; i++){
+                            questions.push({id:results.rows.item(i)['id'], answered:false, answerId:null, correct:null, description:null});
+                        }
+
+                        questions = shuffle(questions);
+                        getQuestion(0);
+                    }
+                },null);
+            });
+
+        }
+
+        function shuffle(array) {
+            var tmp, current, top = array.length;
+
+            if(top) while(--top) {
+                current = Math.floor(Math.random() * (top + 1));
+                tmp = array[current];
+                array[current] = array[top];
+                array[top] = tmp;
+            }
+
+            return array;
+        }
+
+        function getQuestion(index) {
+            db.transaction(function (tx) {
+                tx.executeSql("SELECT  question.id as id, question.text, description, answer.text as ans, answer.id as aid, correct  FROM QUESTION, ANSWER WHERE question.id=question_id and question.id='"+questions[index].id+"'", [], function (tx, results){
+                    var len = results.rows.length, i;
+                    $('#panel-body').empty();
+                    $('#navbar').empty();
+
+                    if (len == 0) {
+                        $('#panel-body').append('<h2>Ingen spørsmål funnet</h2>');
+                        return;
+                    }else{
+                        $('#panel-heading').empty();
+
+
+                        var id = results.rows.item(0)['id'];
+                        var question = results.rows.item(0)['text'];
+                        var description = results.rows.item(0)['description'];
+
+                        var questionNumber = (parseInt(index,10)+1);
+
+                        $('#panel-heading').append('<div class="panel-title"><small>'+questionNumber+'</small> '+question+'</div>');
+                        $('#panel-heading').attr('style', 'background-color:#97B7C9');
+                        $('#navbar').append('<span class="btn-clipboard"><button class="btn btn-warning btn-lg"  style="margin-top:4px" id="exit">Avslutt</button></span>');
+
+                        $('#panel-body').append('<div class="list-group" id="alternatives">');
+
+                        for (i = 0; i < len; i++){
+                            var answer = results.rows.item(i)['ans'];
+                            var aid = results.rows.item(i)['aid'];
+                            $('#alternatives').append('<a id="'+aid+'" class="list-group-item">'+answer+'</a>');
+                        }
+
+
+
+
+                        if(questions[index].answered){
+                            answerQuestion(id, index);
+                        } else {
+                            $('#panel-body a').each(function(){
+                                var answer_id = $(this).attr('id');
+                                $(this).click(function(){
+                                    questions[index].answered = 1;
+                                    questions[index].answerId = answer_id;
+                                    questions[index].description = description;
+                                   answerQuestion(id, index);
+                                });
+                            });
+                        }
+
+                        index = parseInt(index,10);
+                        var place = parseInt(index,10)+1;
+                        var startPoint = (place-2)>0?place-2:1;
+                        var i =0;
+
+
+                        $('#panel-footer').empty();
+
+                        $('#panel-footer').append('<h4>');
+                        $('#panel-footer h4').text(globalVar['class'].name + ' - ' + globalVar['subject'].name + ' - ' + globalVar['section'].name);
+
+                        $('#panel-footer').append('<ul id="navigation" class="pagination pagination-lg">');
+
+
+                        if(index!=0){
+                            $('#navigation').append('<li><a href="#" id="'+(index-1)+'"><span>&laquo;</span></a></li>');
+                        } else {
+                            $('#navigation').append('<li class="disabled"><span>&laquo;</span></li>');
+                        }
+
+                        while(startPoint<=questions.length && i<5){
+                            if(startPoint==index+1){
+                                $("#navigation").append('<li class="active"><a href="#" >' + startPoint + '</a></li>');
+                            }else {
+                                if(questions[startPoint-1].answered){
+                                    if(questions[startPoint-1].correct)$("#navigation").append('<li><a style="background-color:#dff0d8;" href="#" id="' + (startPoint - 1) + '">' + startPoint + '</a></li>');
+                                    else $("#navigation").append('<li><a style="background-color:#f2dede;" href="#" id="' + (startPoint - 1) + '">' + startPoint + '</a></li>');
+                                } else {
+                                    $("#navigation").append('<li><a href="#" id="' + (startPoint - 1) + '">' + startPoint + '</a></li>');
+                                }
+                            }
+                            startPoint++;
+                            i++;
+
+                        }
+
+//
+//                        for(i=startPoint;i<ids.length;i++){
+//                            var place = i+1;
+//                            if(i==index){
+//                                $('#navigation').append('<li class="active"><a id="'+i+'"">'+place+'</a></li>');
+//                            }else{
+//                                if(ids[i].correct){
+//                                $('#navigation').append('<li><a style="color:green" id="'+i+'"">'+place+'</a></li>');
+//                                } else {
+//                                    $('#navigation').append('<li><a id="' + i + '"">' + place + '</a></li>');
+//                                }
+//                            }
+//                        }
+
+                        if(index!=questions.length-1){
+                            $('#navigation').append('<li><a href="#" id="'+(index+1)+'"><span>&raquo;</span></a></li>');
+                        } else{
+                            $('#navigation').append('<li class="disabled"><span>&raquo;</span></li>');
+                        }
+
+
+                        $('#navigation li a').each(function(){
+                            var id = $(this).attr('id');
+                            $(this).click(function(){
+                                getQuestion(id);
+                            });
+                        });
+
+
+
+
+                        $("#exit").click(function(){
+                            $('#navbar').empty();
+                            current = 'level';
+                            calculateResult();
+                        });
+
+                    }
+
+                },null);
+            });
+        }
+
+        function answerQuestion(question_id, questions_place){
+            console.log(questions);
+            db.transaction(function (tx) {
+                tx.executeSql("SELECT id, correct FROM ANSWER where question_id='"+question_id+"'", [], function (tx, results){
+                    var len = results.rows.length, i;
+                    var correctId = 0;
+                    questions[questions_place].correct = true;
+                    if(len==0){
+                        console.log(len);
+                    } else {
+                        for (i = 0; i < len; i++) {
+                            var id = results.rows.item(i)['id'];
+                            var correct = results.rows.item(i)['correct'];
+                            if (correct == 1) {
+                                correctId = id;
+                            }
+                        }
+                        var answer_id = questions[questions_place].answerId;
+                        if (answer_id != correctId) {
+                            $('#' + answer_id).attr("class", "list-group-item list-group-item-danger");
+                            questions[questions_place].correct = false;
+                        }
+                        $('#' + correctId).attr("class", "list-group-item list-group-item-success");
+
+                        var description = questions[questions_place].description;
+                        if (description != '') {
+                            $('#dynamicDiv').append('<br>');
+                            $('#panel-body').append('<div class="alert alert-info" role="alert">' + description + '</div>');
+                        }
+
+                        $('#alternatives a').each(function () {
+                            $(this).unbind('click');
+                        });
+
+                    }
+
+                },null);
+            });
+        }
+
+    function calculateResult(){
+        var question_total = questions.length;
+        var answered = 0;
+        var correct = 0;
+        for(var i=0; i<question_total; i++){
+            var question = questions[i];
+            if(question.answered){
+                answered++;
+                question.answered = null;
+                if(question.correct)correct++;
+            }
+
+        }
+
+        console.log(question_total, answered, correct);
+        $('#dynamicDiv').empty();
+        $('#dynamicDiv').append('<div id="jumbo" class="jumbotron text-center">');
+        $('#jumbo').append('<h2>Test Resultater</h2>');
+        $('#jumbo').append('<p>Antall spørsmål:  '+question_total+'</p>');
+        $('#jumbo').append('<p>Antall svart:  '+answered+'</p>');
+        $('#jumbo').append('<p>Antall riktige:  '+correct+'</p>');
+        $('#jumbo').append('<p><a class="btn btn-primary btn-lg" role="button" id="restart"">Avslutt</a></p>');
+        $('#jumbo').append('<p><a class="btn btn-primary btn-lg" role="button" id="retry"">Gjenta</a></p>');
+        $('#jumbo').append('<p></p>');
+
+
+
+        $("#restart").on('click', function(){
+            questions = [];
+            start();
+        });
+
+        $("#retry").on('click', function(){
+            $('#dynamicDiv').empty();
+
+            $('#dynamicDiv').append('<div id="mainRow" class="row">');
+            $('#mainRow').append('<div id="mainPanel" class="panel panel-default text-center">');
+            $('#mainPanel').append('<div id="panel-heading" class="panel-heading">');
+            $('#mainPanel').append('<div id="panel-body" class="panel-body">');
+            $('#mainPanel').append('<div class="panel-footer" id="panel-footer">');
+
+            $('#panel-heading').append('<div class="panel-title" id="panel-title">Velg Nivå</div>');
+            $('#panel-heading').append('<span class="btn-topleft" id="backbutton"></span>');
+
+            $('#panel-footer').append('<h4>');
+
+
+            getQuestion(0);
+        });
+
+
+    }
+
+
+
+
+    </script>
 </head>
 <body>
 
-    <div class="navbar navbar-inverse navbar-static-top">
+    <div class="navbar navbar-inverse navbar-fixed-top">
         <div class="container">
-        <div class="navbar-header">
-            <button class="navbar-toggle" data-toggle = "collapse" data-target=".navHeaderCollapse">
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-            </button>
-            <a class = "navbar-brand" href="#">StudTest</a>
-        </div>
-        <div class="collapse navbar-collapse navHeaderCollapse">
 
-            <ul class="nav navbar-nav navbar-right">
 
-                <li><a href="#">Home</a></li>
-                <li><a href="#">Om</a></li>
-                <li><a href="#">Admin</a></li>
-            </ul>
+            <h3 style="color:white;">StudTest <small>Beta</small></h3>
+
+
+        <div id="navbar">
+
+            </div>
 
         </div>
 
 
-        </div>
+
 
     </div>
 
     <div class="container">
 
+
         <div class="row">
-            <div class="col-md-6">
-                <h1>StudTest</h1>
-
-            </div>
-
-            <div class="col-md-6 text-right">
+            <div id="dynamicDiv" class="container">
 
 
             </div>
-        </div>
-
-        <div class="row text-center">
-
-
-            <div class="jumbotron">
-                <center>
-                    <h1>Hva kan du på skolen?</h1>
-                    <h2>Løs test og bli best</h2>
-                    <a class="btn btn-lg btn-primary" href="quiz">Start!</a>
-                </center>
-            </div>
-
-            <form class="form-inline" role="form">
-                <div class="form-group">
-                    <input type="text" class="form-control" id="exampleInputEmail2" placeholder="Brukernavn">
-                </div>
-                <div class="form-group">
-                    <input type="password" class="form-control" id="exampleInputPassword2" placeholder="Passord">
-                </div>
-                <button type="submit" class="btn btn-default">Login</button>
-            </form>
-
-            <h3>Ikke registrert? <small><a href="#">registrer deg her</a></small></h3>
-
-
-
         </div>
 
 
@@ -92,9 +597,15 @@
 
 
 
+
+
+
 <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
 <!-- Include all compiled plugins (below), or include individual files as needed -->
 <script src="js/bootstrap.min.js"></script>
+<script src="js/jquery.twbsPagination.min.js"></script>
+
 </body>
 </html>
+
+

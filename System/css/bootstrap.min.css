@@ -10,7 +10,8 @@ html {
 }
 
 body {
-    margin: 0
+    margin: 0;
+    padding-top: 70px
 }
 
 article, aside, details, figcaption, figure, footer, header, hgroup, main, nav, section, summary {
@@ -3310,6 +3311,15 @@ textarea.input-lg, select[multiple].input-lg {
     border-radius: 3px
 }
 
+.btn-xlg {
+    padding: 18px 28px;
+    font-size: 22px;
+    line-height: normal;
+    -webkit-border-radius: 8px;
+    -moz-border-radius: 8px;
+    border-radius: 8px;
+}
+
 .btn-block {
     display: block;
     width: 100%
@@ -5220,7 +5230,8 @@ a.thumbnail:hover, a.thumbnail:focus, a.thumbnail.active {
     padding: 10px 15px;
     margin-bottom: -1px;
     background-color: #fff;
-    border: 1px solid #ddd
+    border: 1px solid #ddd;
+    font-size:26px;
 }
 
 .list-group-item:first-child {
@@ -5417,7 +5428,7 @@ a.list-group-item-danger.active, a.list-group-item-danger.active:hover, a.list-g
 .panel-title {
     margin-top: 0;
     margin-bottom: 0;
-    font-size: 16px;
+    font-size: 22px;
     color: inherit
 }
 
@@ -6680,6 +6691,6 @@ button.close {
     position: absolute;
     top: 0;
     left: 0;
-    margin-top: 2px;
+    margin-top: 0px;
 }
 
