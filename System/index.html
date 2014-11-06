@@ -39,8 +39,8 @@
             $('#dynamicDiv').append('<div id="jumbo" class="jumbotron text-center">');
             $('#jumbo').append('<h2>StudTest <small>Beta</small></h2>');
             $('#jumbo').append('<p>Begynn å løs oppgaver ved å trykke på start. <br>Trykk på oppdater data for å laste ned oppgavene</p>');
-            $('#jumbo').append('<p><a class="btn btn-primary btn-lg" role="button" id="start"">Start</a></p>');
-            $('#jumbo').append('<button class="btn btn-primary btn-lg" role="button"  id="updatedb" >Oppdater data</button>');
+            $('#jumbo').append('<p><a class="btn btn-primary btn-xlg" style="width: 210px;" role="button" id="start"">START</a></p>');
+            $('#jumbo').append('<p><a class="btn btn-info btn-lg" style="min-width: 210px;" role="button"  id="updatedb" >OPPDATER DATA</a></p>');
             $('#jumbo').append('<p></p>');
 
             $("#updatedb").on('click', function(){
@@ -53,6 +53,7 @@
             $("#start").on('click', function(){
                 getLevels();
             });
+
 
 
 
@@ -155,7 +156,7 @@
             $('#dynamicDiv').empty();
 
 
-            $('#dynamicDiv').append('<div id="mainRow" class="row">');
+            $('#dynamicDiv').append('<div id="mainRow" class="row text-center">');
             $('#mainRow').append('<div id="mainPanel" class="panel panel-default text-center">');
             $('#mainPanel').append('<div id="panel-heading" class="panel-heading">');
             $('#mainPanel').append('<div id="panel-body" class="panel-body">');
@@ -165,6 +166,9 @@
             $('#panel-heading').append('<span class="btn-topleft" id="backbutton"></span>');
 
             $('#panel-footer').append('<h4>');
+//            $('#mainRow').append('<div id="underPanel" class="text-center">');
+
+
             db.transaction(queryDB);
         }
 
@@ -269,6 +273,12 @@
                     current = prevMenu;
                     db.transaction(queryDB);
                 });
+            } else {
+                $('#backbutton').append('<button class="btn btn-primary btn-lg" id="backtomain">&laquo</button>');
+                $('#backtomain').on('click', function(){
+                    start();
+                });
+
             }
         }
 
@@ -278,6 +288,10 @@
             $('#panel-body').append('<button type="button" class="btn btn-default btn-lg" id="updatedb"">Last ned oppgaver</button>');
 
 
+            $('#backbutton').append('<button class="btn btn-primary btn-lg" id="backtomain">&laquo</button>');
+            $('#backtomain').on('click', function(){
+                start();
+            });
 
             $("#updatedb").on('click', function(){
                 var btn = $(this);
@@ -339,7 +353,14 @@
                 tx.executeSql("SELECT  question.id as id, question.text, description, answer.text as ans, answer.id as aid, correct  FROM QUESTION, ANSWER WHERE question.id=question_id and question.id='"+questions[index].id+"'", [], function (tx, results){
                     var len = results.rows.length, i;
                     $('#panel-body').empty();
-                    $('#navbar').empty();
+                    $('#underPanel').empty();
+                    $('#footer-content').empty();
+                    $('#footer').show(500);
+                    $('#navbar').hide();
+                    $('body').animate({ paddingTop: '5px' });
+                    $('body').animate({ paddingBottom: '55px' });
+
+
 
                     if (len == 0) {
                         $('#panel-body').append('<h2>Ingen spørsmål funnet</h2>');
@@ -356,7 +377,10 @@
 
                         $('#panel-heading').append('<div class="panel-title"><small>'+questionNumber+'</small> '+question+'</div>');
                         $('#panel-heading').attr('style', 'background-color:#97B7C9');
-                        $('#navbar').append('<span class="btn-clipboard"><button class="btn btn-warning btn-lg"  style="margin-top:4px" id="exit">Avslutt</button></span>');
+
+
+
+
 
                         $('#panel-body').append('<div class="list-group" id="alternatives">');
 
@@ -391,16 +415,49 @@
 
                         $('#panel-footer').empty();
 
-                        $('#panel-footer').append('<h4>');
-                        $('#panel-footer h4').text(globalVar['class'].name + ' - ' + globalVar['subject'].name + ' - ' + globalVar['section'].name);
 
-                        $('#panel-footer').append('<ul id="navigation" class="pagination pagination-lg">');
+                        $('#panel-footer').append('<h4>');
+                        var section = globalVar['section'].name.toString();
+                        if(section != ' '){
+                        console.log(globalVar['section'].name);
+                             section = ' - ' + section;
+                        }
+                        var currentTest = globalVar['class'].name + ' - ' + globalVar['subject'].name + section;
+                        $('#panel-footer h4').text(currentTest);
+
+
+                        $('#panel-footer').append('<button class="btn btn-warning btn-lg"  style="width: 124px; " id="exit">AVSLUTT</button>');
+                        $('#panel-footer').append('<button class="btn btn-warning btn-lg"  style="margin-right:2px; width: 60px; display: none;" id="exitYes">JA</button>');
+                        $('#panel-footer').append('<button class="btn btn-info btn-lg"  style="margin-left:2px; width: 60px; display: none;" id="exitNo">NEI</button>');
+//                        $('#panel-footer').append('<h3 id="exitText"style="color: #222222; display: none;">Avslutte?</h3>');
+
+                        $("#exit").click(function(){
+                            $('#exit, #exitYes, #exitNo').toggle(300);
+                            $('#panel-footer h4').text('Avslutte?');
+                            $('#exitText').toggle();
+                        });
+
+                        $("#exitYes").click(function(){
+                            $('#underPanel').empty();
+                            current = 'level';
+                            calculateResult();
+
+                        });
+
+                        $("#exitNo").click(function(){
+                            $('#exit, #exitYes, #exitNo').toggle(300);
+                            $('#panel-footer h4').text(currentTest);
+                            $('#exitText').toggle();
+
+                        });
+
+
+                        $('#footer-content').append('<ul id="navigation" class="pagination pagination-lg">');
+
 
 
                         if(index!=0){
                             $('#navigation').append('<li><a href="#" id="'+(index-1)+'"><span>&laquo;</span></a></li>');
-                        } else {
-                            $('#navigation').append('<li class="disabled"><span>&laquo;</span></li>');
                         }
 
                         while(startPoint<=questions.length && i<5){
@@ -435,8 +492,6 @@
 
                         if(index!=questions.length-1){
                             $('#navigation').append('<li><a href="#" id="'+(index+1)+'"><span>&raquo;</span></a></li>');
-                        } else{
-                            $('#navigation').append('<li class="disabled"><span>&raquo;</span></li>');
                         }
 
 
@@ -450,11 +505,7 @@
 
 
 
-                        $("#exit").click(function(){
-                            $('#navbar').empty();
-                            current = 'level';
-                            calculateResult();
-                        });
+
 
                     }
 
@@ -517,15 +568,24 @@
         }
 
         console.log(question_total, answered, correct);
-        $('#dynamicDiv').empty();
-        $('#dynamicDiv').append('<div id="jumbo" class="jumbotron text-center">');
-        $('#jumbo').append('<h2>Test Resultater</h2>');
-        $('#jumbo').append('<p>Antall spørsmål:  '+question_total+'</p>');
-        $('#jumbo').append('<p>Antall svart:  '+answered+'</p>');
-        $('#jumbo').append('<p>Antall riktige:  '+correct+'</p>');
-        $('#jumbo').append('<p><a class="btn btn-primary btn-lg" role="button" id="restart"">Avslutt</a></p>');
-        $('#jumbo').append('<p><a class="btn btn-primary btn-lg" role="button" id="retry"">Gjenta</a></p>');
-        $('#jumbo').append('<p></p>');
+
+        $('#panel-heading').empty();
+        $('#panel-heading').append('<div class="panel-title">TEST RESULTATER</div>');
+        $('#panel-body').empty();
+        $('#panel-body').append('<h2>Antall spørsmål:  '+question_total+'</h2>');
+        $('#panel-body').append('<h2>Antall svart:  '+answered+'</h2>');
+        $('#panel-body').append('<h2>Antall riktige:  '+correct+'</h2>');
+
+        $('#panel-footer').empty();
+        $('#footer').hide();
+        $('#navbar').show();
+        $('body').animate({ paddingTop: '70px' });
+
+
+
+        $('#panel-footer').append('<p><a class="btn btn-info btn-lg"  style="width: 210px;" role="button" id="retry"">PRØV IGJEN</a></p>');
+        $('#panel-footer').append('<p><a class="btn btn-warning btn-lg" style="width: 210px;" role="button" id="restart"">AVSLUTT</a></p>');
+
 
 
 
@@ -537,7 +597,7 @@
         $("#retry").on('click', function(){
             $('#dynamicDiv').empty();
 
-            $('#dynamicDiv').append('<div id="mainRow" class="row">');
+            $('#dynamicDiv').append('<div id="mainRow" class="row text-center">');
             $('#mainRow').append('<div id="mainPanel" class="panel panel-default text-center">');
             $('#mainPanel').append('<div id="panel-heading" class="panel-heading">');
             $('#mainPanel').append('<div id="panel-body" class="panel-body">');
@@ -547,6 +607,7 @@
             $('#panel-heading').append('<span class="btn-topleft" id="backbutton"></span>');
 
             $('#panel-footer').append('<h4>');
+//            $('#mainRow').append('<div id="underPanel" class="text-center">');
 
 
             getQuestion(0);
@@ -562,16 +623,23 @@
 </head>
 <body>
 
-    <div class="navbar navbar-inverse navbar-fixed-top">
+    <div id="navbar" class="navbar navbar-inverse navbar-fixed-top">
         <div class="container">
-
-
-            <h3 style="color:white;">StudTest <small>Beta</small></h3>
-
-
-        <div id="navbar">
-
+        <div class="row">
+            <div class="col-md-3">
+                <h3 style="color:white;">StudTest <small>Beta</small></h3>
             </div>
+            <div class="col-mod-9">
+                <h4 id="muhsin" style="color: #ffffff"></h4>
+            </div>
+
+
+        </div>
+
+
+
+
+
 
         </div>
 
@@ -595,6 +663,18 @@
 
     </div>
 
+    <div id="footer" class="container" style="display: none; ">
+        <nav class="navbar navbar-inverse navbar-fixed-bottom">
+          <div class="container text-center">
+            <div class="row" id="footer-content">
+
+            </div>
+            <div class="row" id="underPanel">
+
+            </div>
+              </div>
+        </nav>
+    </div>
 
 
 
