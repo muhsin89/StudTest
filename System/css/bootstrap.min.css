@@ -3320,6 +3320,15 @@ textarea.input-lg, select[multiple].input-lg {
     border-radius: 8px;
 }
 
+.btn-mxlg {
+    padding: 10px 15px;
+    font-size: 32px;
+    line-height: normal;
+    border-radius: 21px;
+    margin: 2px 2px 2px 2px;
+}
+
+
 .btn-block {
     display: block;
     width: 100%
@@ -3398,7 +3407,7 @@ tbody.collapse.in {
     min-width: 160px;
     padding: 5px 0;
     margin: 2px 0 0;
-    font-size: 14px;
+    font-size: 22px;
     text-align: left;
     list-style: none;
     background-color: #fff;
@@ -6694,3 +6703,9 @@ button.close {
     margin-top: 0px;
 }
 
+.btn-topright {
+    position: absolute;
+    top: 0;
+    right: 0;
+    margin-top: 0px;
+}

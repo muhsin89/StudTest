@@ -20,12 +20,12 @@
 
     <script>
 
-    var db = openDatabase('StudTest', '1.0', 'DB of StudTest', 2 * 1024 * 1024);
     var globalVar = {};
     globalVar['level'] = {id:null, name:null};
     globalVar['class'] = {id:null, name:null};
     globalVar['subject'] = {id:null, name:null};
     globalVar['section'] = {id:null, name:null};
+    globalVar['question'] = {id:null, name:null};
     var current = 'level';
     var questions = [];
 
@@ -38,108 +38,20 @@
             $('#dynamicDiv').empty();
             $('#dynamicDiv').append('<div id="jumbo" class="jumbotron text-center">');
             $('#jumbo').append('<h2>StudTest <small>Beta</small></h2>');
-            $('#jumbo').append('<p>Begynn å løs oppgaver ved å trykke på start. <br>Trykk på oppdater data for å laste ned oppgavene</p>');
+            $('#jumbo').append('<p>Begynn å løs oppgaver ved å trykke på start.</p>');
+            $('#jumbo').append('<p>For å lage dine egne spørsmål, må du logge inn</p>');
             $('#jumbo').append('<p><a class="btn btn-primary btn-xlg" style="width: 210px;" role="button" id="start"">START</a></p>');
-            $('#jumbo').append('<p><a class="btn btn-info btn-lg" style="min-width: 210px;" role="button"  id="updatedb" >OPPDATER DATA</a></p>');
-            $('#jumbo').append('<p></p>');
 
-            $("#updatedb").on('click', function(){
-                var btn = $(this);
-                btn.button('loading');
-                loadDatabase();
-                btn.button('reset');
-            });
+
 
             $("#start").on('click', function(){
                 getLevels();
             });
 
 
-
-
-        }
-
-        function loadDatabase(start){
-
-            db.transaction(function (tx) {
-                tx.executeSql('CREATE TABLE IF NOT EXISTS LEVEL (id primary key unique, name)');
-                tx.executeSql('CREATE TABLE IF NOT EXISTS CLASS (id primary key unique, name, level_id)');
-                tx.executeSql('CREATE TABLE IF NOT EXISTS SUBJECT (id primary key unique, name, class_id)');
-                tx.executeSql('CREATE TABLE IF NOT EXISTS SECTION (id primary key unique, name, subject_id)');
-                tx.executeSql('CREATE TABLE IF NOT EXISTS QUESTION (id primary key unique, text, description, subject_id, section_id, user_id, date)');
-                tx.executeSql('CREATE TABLE IF NOT EXISTS ANSWER (id primary key unique, text, correct, question_id)');
-                // tx.executeSql('INSERT INTO FAG (id,navn,level_id) VALUES (?,?,?)',["6", "adss", "3"]);
-
-            });
-
-            $.ajax({
-                url: 'http://folk.ntnu.no/gunaydin/index.php',
-                type: 'POST',
-                data: {action:'all'},
-                dataType: 'JSON',
-                timeout: 5000,
-                success: function(data, status){
-                    console.log(data);
-                    var values = "VALUES (";
-                    var query, rows = "";
-                    var val =[];
-                    for(var key in data){
-                        var queryStart = "INSERT OR REPLACE INTO " + key.toUpperCase() + " (";
-                        var table = data[key];
-                        for(var i=0; i<table.length; i++ ){
-                            var row = table[i];
-                            for(var rowId in row){
-                                rows+=rowId+",";
-                                values+="?,";
-                                val.push(row[rowId]);
-                            }
-                            rows = rows.substr(0, rows.length-1);
-                            values = values.substr(0, values.length-1);
-                            var query =queryStart+rows+") "+ values +")";
-                            console.log(query);
-                            console.log(val);
-                            insert(query,val);
-                            rows ="";
-                            var values = "VALUES (";
-                            val=[];
-                        }
-                    }
-                    $('#updatedb').text('Data har blitt oppdatert');
-                    $('#updatedb').attr('disabled', 'true');
-
-                    if(start)getLevels();
-
-                },
-                error: function(xhr, tStatus, err ){
-                    $('#dynamicDiv').empty();
-                    $('#dynamicDiv').append('<div id="jumbo" class="jumbotron text-center">');
-                    $('#jumbo').empty();
-                    $('#jumbo').append('<h3>Kunne ikke hente data</h3>');
-                    console.log(err);
-                    console.log(xhr);
-                    console.log(tStatus);
-                    if(xhr.status==0){
-                        $('#jumbo').append('<p>Ingen tilkobling</p>');
-                    } else{
-                        $('#jumbo').append('<p>Det har oppstått en feil</p>');
-                    }
-                    $('#jumbo').append('<p><a class="btn btn-primary btn-lg" role="button" onclick="start();">Tilbake</a></p>');
-
-                }
-            });
         }
 
 
-
-        function insert(sql, values){
-            db.transaction(function (tx) {
-                tx.executeSql(sql, values, function (tx, result) {
-                    console.log('record added');
-                }, onError);
-            });
-
-            return;
-        }
 
 
 
@@ -172,7 +84,7 @@
 //            $('#mainRow').append('<div id="underPanel" class="text-center">');
 
 
-            db.transaction(queryDB);
+            queryDB();
         }
 
 
@@ -209,27 +121,113 @@
             }
         }
 
-        function queryDB(tx){
+        function queryDB(){
             var sql = '';
+            var id = -1;
+            var secondid = -1;
             switch (current) {
-                case 'level':
-                    sql = "SELECT * FROM LEVEL";
-                    break;
                 case "class":
-                    sql = "SELECT class.id,class.name FROM class WHERE level_id='" + globalVar['level'].id+"'";
+                    id = globalVar['level'].id;
                     break;
                 case "subject":
-                    sql = "SELECT subject.id, subject.name FROM subject WHERE class_id='" + globalVar['class'].id+"'";
+                    id = globalVar['class'].id;
                     break;
                 case "section":
-                    sql = "SELECT section.id, section.name FROM section WHERE subject_id='" + globalVar['subject'].id+"'";
+                    id = globalVar['subject'].id;
                     break;
                 case "question":
-                    getQuestionIds();
-                    return;
+                    id = globalVar['subject'].id;
+                    secondid = globalVar['section'].id;
+                    break;
+
             }
-            tx.executeSql(sql,[], querySuccess, queryError);
+
+            $.ajax({
+                url: 'http://folk.ntnu.no/gunaydin/index.php',
+                type: 'POST',
+                data: {action:current, id:id, secondid:secondid},
+                dataType: 'JSON',
+                timeout: 5000,
+                success: successFunction,
+                error: errorFunction});
         }
+
+
+        function successFunction(data){
+            console.log(current);
+            if(current=='question'){
+                if(questions.length == 0){
+                    if(data.length==0) {
+                        $('#panel-body').append('<h2>Fant ingenting</h2>');
+                        return;
+                    } else{
+                        for (var i = 0; i < data.length; i++){
+                            questions.push({id:data[i].id, answered:false, answerId:null, correct:null, description:null});
+                        }
+
+                        questions = shuffle(questions);
+                        getQuestion(0);
+                        return;
+                    }
+                }else {
+
+                }
+            }else if(current!='question'){
+                console.log(data);
+                console.log(globalVar);
+                $('#panel-body').empty();
+
+                if (data.length == 0) {
+                    $('#panel-body').append('<h2>Ingenting funnet</h2>');
+                } else {
+                    $("#panel-title").text(getHeader());
+                    $('#panel-body').append('<div class="btn-group-vertical" id="' + current + '">');
+
+                    if(current=="section"){
+                        $('#' + current).append('<button type="button" class="btn btn-xlg btn-default" value=" " id="-1">Alle</button>');
+                    }
+
+                    for (var i = 0; i < data.length; i++) {
+                        var navn = data[i].name;
+                        var id = data[i].id;
+                        $('#' + current).append('<button type="button" class="btn btn-xlg btn-default" value="' + navn + '" id="' + id + '">' + navn + '</button>');
+                    }
+
+                    $('#' + current + ' button').each(function () {
+                        var id = $(this).attr('id');
+                        var name = $(this).attr('value');
+                        $(this).click(function () {
+                            globalVar[current].id = id;
+                            globalVar[current].name = name;
+                            current = getNextMenu(true);
+                            queryDB();
+                        });
+                    });
+                }
+                $('#backbutton').empty();
+                var prevMenu = getNextMenu(false);
+                if(prevMenu) {
+                    $('#backbutton').append('<button class="btn btn-primary btn-lg" id="' + current + 'back">&laquo</button>');
+                    $('#' + current + 'back').on('click', function () {
+                        current = prevMenu;
+                        queryDB();
+                    });
+                } else {
+                    $('#backbutton').append('<button class="btn btn-primary btn-lg" id="backtomain">&laquo</button>');
+                    $('#backtomain').on('click', function(){
+                        start();
+                    });
+
+                }
+
+            }
+
+        }
+
+    function errorFunction(){
+
+    }
+
 
         function querySuccess(tx, results){
             var prevMenu = getNextMenu(false);
@@ -352,9 +350,15 @@
         }
 
         function getQuestion(index) {
-            db.transaction(function (tx) {
-                tx.executeSql("SELECT  question.id as id, question.text, description, answer.text as ans, answer.id as aid, correct  FROM QUESTION, ANSWER WHERE question.id=question_id and question.id='"+questions[index].id+"'", [], function (tx, results){
-                    var len = results.rows.length, i;
+            $.ajax({
+                url: 'http://folk.ntnu.no/gunaydin/index.php',
+                type: 'POST',
+                data: {action:'getquestion', id:questions[index].id},
+                dataType: 'JSON',
+                timeout: 5000,
+                success: function(data, status){
+
+                    var len = data.length;
                     $('#panel-body').empty();
                     $('#underPanel').empty();
                     $('#footer-content').empty();
@@ -366,36 +370,30 @@
                     $('body').animate({ paddingBottom: '55px' });
 
 
-
                     if (len == 0) {
                         $('#panel-body').append('<h2>Ingen spørsmål funnet</h2>');
                         return;
-                    }else{
+                    }else {
                         $('#panel-heading').empty();
 
 
-                        var id = results.rows.item(0)['id'];
-                        var question = results.rows.item(0)['text'];
-                        var description = results.rows.item(0)['description'];
+                        var id = data[0].id;
+                        var question = data[0].text;
+                        var description = data[0].description;
 
-                        var questionNumber = (parseInt(index,10)+1);
+                        var questionNumber = (parseInt(index, 10) + 1);
 
-                        $('#panel-heading').append('<div class="panel-title"><small>'+questionNumber+'</small> '+question+'</div>');
+                        $('#panel-heading').append('<div class="panel-title"><small>' + questionNumber + '</small> ' + question + '</div>');
                         $('#panel-heading').attr('style', 'background-color:#97B7C9');
-
-
-
 
 
                         $('#panel-body').append('<div class="list-group" id="alternatives">');
 
-                        for (i = 0; i < len; i++){
-                            var answer = results.rows.item(i)['ans'];
-                            var aid = results.rows.item(i)['aid'];
-                            $('#alternatives').append('<a id="'+aid+'" class="list-group-item">'+answer+'</a>');
+                        for (var i = 0; i < len; i++) {
+                            var answer = data[i].ans;
+                            var aid = data[i].aid;
+                            $('#alternatives').append('<a id="' + aid + '" class="list-group-item">' + answer + '</a>');
                         }
-
-
 
 
                         if(questions[index].answered){
@@ -407,7 +405,7 @@
                                     questions[index].answered = 1;
                                     questions[index].answerId = answer_id;
                                     questions[index].description = description;
-                                   answerQuestion(id, index);
+                                    answerQuestion(id, index);
                                 });
                             });
                         }
@@ -424,8 +422,8 @@
                         $('#panel-footer').append('<h4>');
                         var section = globalVar['section'].name.toString();
                         if(section != ' '){
-                        console.log(globalVar['section'].name);
-                             section = ' - ' + section;
+                            console.log(globalVar['section'].name);
+                            section = ' - ' + section;
                         }
                         var currentTest = globalVar['class'].name + ' - ' + globalVar['subject'].name + section;
                         $('#panel-footer h4').text(currentTest);
@@ -434,7 +432,6 @@
                         $('#panel-footer').append('<button class="btn btn-warning btn-lg"  style="width: 124px; " id="exit">AVSLUTT</button>');
                         $('#panel-footer').append('<button class="btn btn-warning btn-lg"  style="margin-right:2px; width: 60px; display: none;" id="exitYes">JA</button>');
                         $('#panel-footer').append('<button class="btn btn-info btn-lg"  style="margin-left:2px; width: 60px; display: none;" id="exitNo">NEI</button>');
-//                        $('#panel-footer').append('<h3 id="exitText"style="color: #222222; display: none;">Avslutte?</h3>');
 
                         $("#exit").click(function(){
                             $('#exit, #exitYes, #exitNo').toggle(300);
@@ -461,6 +458,7 @@
 
 
                         if(index!=0){
+//                            $('#navigation').append('<li><a href="#" id="'+(index-1)+'"><span>&laquo;</span></a></li>');
                             $('#footer-content-left').append('<button type="button" style="color:#428bca; background-color:white;" id="prevQuestion" value="'+(index-1)+'" class="btn btn-mxlg">&laquo</button>');
                             $('#prevQuestion').click(function(){
                                 var id = $(this).attr('value');
@@ -485,26 +483,15 @@
 
                         }
 
-//
-//                        for(i=startPoint;i<ids.length;i++){
-//                            var place = i+1;
-//                            if(i==index){
-//                                $('#navigation').append('<li class="active"><a id="'+i+'"">'+place+'</a></li>');
-//                            }else{
-//                                if(ids[i].correct){
-//                                $('#navigation').append('<li><a style="color:green" id="'+i+'"">'+place+'</a></li>');
-//                                } else {
-//                                    $('#navigation').append('<li><a id="' + i + '"">' + place + '</a></li>');
-//                                }
-//                            }
-//                        }
 
                         if(index!=questions.length-1){
+//                            $('#navigation').append('<li><a href="#" id="'+(index+1)+'"><span>&raquo;</span></a></li>');
                             $('#footer-content-right').append('<button type="button" style="color:#428bca; background-color:white;" id="nextQuestion" value="'+(index+1)+'" class="btn btn-mxlg">&raquo</button>');
                             $('#nextQuestion').click(function(){
                                 var id = $(this).attr('value');
                                 getQuestion(id);
                             });
+
                         }
 
 
@@ -515,30 +502,32 @@
                             });
                         });
 
-
-
-
-
-
                     }
 
-                },null);
-            });
+                },
+                error: errorFunction});
+
         }
 
         function answerQuestion(question_id, questions_place){
             console.log(questions);
-            db.transaction(function (tx) {
-                tx.executeSql("SELECT id, correct FROM ANSWER where question_id='"+question_id+"'", [], function (tx, results){
-                    var len = results.rows.length, i;
+            $.ajax({
+                url: 'http://folk.ntnu.no/gunaydin/index.php',
+                type: 'POST',
+                data: {action:'answer', id:question_id},
+                dataType: 'JSON',
+                timeout: 5000,
+                success: function(data, status){
+                    console.log(data);
+                    var len = data.length;
                     var correctId = 0;
                     questions[questions_place].correct = true;
                     if(len==0){
                         console.log(len);
                     } else {
-                        for (i = 0; i < len; i++) {
-                            var id = results.rows.item(i)['id'];
-                            var correct = results.rows.item(i)['correct'];
+                        for (var i = 0; i < len; i++) {
+                            var id = data[i].id
+                            var correct = data[i].correct;
                             if (correct == 1) {
                                 correctId = id;
                             }
@@ -562,8 +551,8 @@
 
                     }
 
-                },null);
-            });
+                },
+                error:errorFunction});
         }
 
     function calculateResult(){
@@ -670,11 +659,26 @@
 
             </div>
         </div>
+        <div class="row text-center">
+
+            <div class="col-md-6 col-xs-6 ">
+                <input type="text" class="form-control" placeholder="Brukernavn">
+            </div>
+            <div class="col-md-6 col-xs-6 ">
+
+                <input type="password" class="form-control" placeholder="Passord" >
+
+            </div>
+            <div class="col-md-12 col-xs-12">
+                <button class="btn btn-warning btn-block" style="margin-top: 5px;" type="submit">Login</button>
+            </div>
 
 
 
 
-    </div>
+
+
+            </div>
 
     <div id="footer" class="container" style="display: none; ">
         <nav class="navbar navbar-inverse navbar-fixed-bottom">

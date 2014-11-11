@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bootstrap 101 Template</title>
+
+    <!-- Bootstrap -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script src="js/jquery.min.js"></script>
+
+
+    <script>
+
+
+
+
+
+
+
+        $( document ).ready(function() {
+
+            $('#add-new-alt').click(function () {
+                addAlternative();
+            });
+
+            $('.dropdown-menu').find('input').click(function (e) {
+                e.stopPropagation();
+            });
+
+
+        });
+        var alternatives = [5,4,3];
+
+        var current = 'level';
+        var globalVar = {};
+        globalVar['level'] = {id:null, name:null};
+        globalVar['class'] = {id:null, name:null};
+        globalVar['subject'] = {id:null, name:null};
+        globalVar['section'] = {id:null, name:null};
+
+        function queryDB(){
+            var id = -1;
+            switch (current) {
+                case "class":
+                    id = globalVar['level'].id;
+                    break;
+                case "subject":
+                    id = globalVar['class'].id;
+                    break;
+                case "section":
+                    id = globalVar['subject'].id;
+                    break;
+                case "question":
+                    id = globalVar['subject'].id;
+                    secondid = globalVar['section'].id;
+                    break;
+
+            }
+
+            $.ajax({
+                url: 'http://folk.ntnu.no/gunaydin/index.php',
+                type: 'POST',
+                data: {action:current, id:id},
+                dataType: 'JSON',
+                timeout: 5000,
+                success: successFunction,
+                error: errorFunction});
+        }
+
+
+        function getButtonName(){
+            switch (current){
+                case 'level':
+                    return 'Nivå';
+                case 'class':
+                    return 'Klasse';
+                case 'subject':
+                    return 'Fag';
+                case 'section':
+                    return 'Tema';
+            }
+
+
+        }
+
+        function successFunction(data){
+            var next = getNextMenu(current);
+
+            $("#"+current).empty();
+            $("#"+next).empty();
+
+            if(current!='level'){
+                var tmpCurrent = current;
+                while(tmpCurrent!=false){
+                    $("#"+tmpCurrent).empty();
+                    tmpCurrent = getNextMenu(tmpCurrent);
+                }
+
+            }
+
+
+
+            var buttonName = getButtonName();
+            $("#"+current).append('<button class="btn btn-default btn-lg dropdown-toggle" type="button" value="'+current+'" id="'+current+'dropdownMenu" data-toggle="dropdown">'+
+            buttonName+'<span class="caret"></span></button>');
+
+            $("#"+current).append('<ul id="'+current+'dropdownItems" class="dropdown-menu" role="menu" aria-labelledby="'+current+'dropdownMenu">');
+
+
+            if (data.length == 0) {
+                if(current!='level') {
+                    $("#" + current + "dropdownItems").append('<li role="presentation" class="divider"></li>');
+                    $("#" + current + "dropdownItems").append('<li role="presentation" id="addnew' + current + '"><a role="menuitem" tabindex="-1" value="Legg" id="add' + current + '">+ Legg til</a></li>');
+                }
+
+            }else {
+
+                for (var i = 0; i < data.length; i++) {
+                    var navn = data[i].name;
+                    var id = data[i].id;
+                    $("#"+current+"dropdownItems").append('<li role="presentation"><a role="menuitem" tabindex="-1" value="'+navn+'" id="'+id+'">'+navn+'</a></li>');
+                }
+
+
+                if(current!='level') {
+                    $("#" + current + "dropdownItems").append('<li role="presentation" class="divider"></li>');
+                    $("#" + current + "dropdownItems").append('<li role="presentation" id="addnew' + current + '"><a role="menuitem" tabindex="-1" value="Legg" id="add' + current + '">+ Legg til</a></li>');
+                }
+                $('#' + current+'dropdownMenu').click(function () {
+                    current = $(this).attr('value');
+
+                });
+
+
+
+                }
+
+
+                    $('#' + current + 'dropdownItems a').each(function () {
+                        var id = $(this).attr('id');
+                        var name = $(this).attr('value');
+                        $(this).click(function (e) {
+
+                            if (id != 'add'+current) {
+                               if(current!='section') {
+                                   $('#questionform').hide();
+                                   $('#' + current + 'dropdownMenu').html(name + '<span class="caret"></span>');
+                                   globalVar[current].id = id;
+                                   current = getNextMenu(current);
+                                   queryDB();
+                               }else{
+                                   $('#' + current + 'dropdownMenu').html(name + '<span class="caret"></span>');
+                                   globalVar[current].id = id;
+                                   $('#jumboh2').hide();
+                                   $('#questionform').show(250);
+                               }
+                            }else{
+                                e.stopPropagation();
+                                $("#addnew"+current).empty();
+                                $("#addnew"+current).append('<div class="input-group" id="new'+current+'">');
+                                $('#new'+current).append('<input type="text" class="form-control" placeholder="Skriv">');
+                                $('#new'+current).append('<span class="input-group-btn"><button class="btn btn-info" type="button" id="add-new'+current+'-button">+</button></span>');
+
+                                $('.dropdown-menu').find('input').click(function (e) {
+                                    e.stopPropagation();
+                                });
+
+                                $('#add-new'+current+'-button').click(function(){
+                                    var prev = getPrevMenu(current);
+                                    id = globalVar[prev].id;
+                                    var newName = $('#new'+current).find('input').val();
+                                    $.ajax({
+                                        url: 'http://folk.ntnu.no/gunaydin/index.php',
+                                        type: 'POST',
+                                        data: {action:'insert', category:current, id:id, name:newName},
+                                        dataType: 'JSON',
+                                        timeout: 5000,
+                                        success: function(data) {
+                                            queryDB();
+                                        },
+                                        error: function(data){
+
+                                        }});
+
+
+
+                                });
+
+
+                            }
+                        });
+
+
+                    });
+
+
+        }
+
+
+        function errorFunction(){
+
+
+        }
+
+        function addAlternative(){
+            console.log(alternatives);
+            if(alternatives.length>0) {
+            var index = alternatives.pop();
+                $('#alternatives').append('<div class="input-group" id="alt' + index + '" style="margin-top: 5px;">');
+                $('#alt' + index).append('<span class="input-group-addon"><input type="radio" name="options" id="alt' + index + 'opt"></span>');
+                $('#alt' + index).append('<input type="text" class="form-control" id="alt' + index + 'text">');
+                $('#alt' + index).append('<span class="input-group-btn"><button class="btn btn-danger" type="button" id="alt' + index + 'delete">X</button></span>');
+
+
+                $('#alt' + index + 'delete').click(function () {
+                    alternatives.push(index);
+                    $('#alt'+index).remove();
+                });
+            }
+        }
+
+
+        function validator(){
+            var subject = globalVar['subject'].id;
+            var section = globalVar['section'].id;
+            var questionText = $('#question-text').val();
+            var description  = $('#description').val();
+            var radioCheck  = false;
+            var alternativesCheck = true;
+
+            var alternatives = [];
+
+            $('#alternatives div').each(function () {
+                var correct = $(this).find("input[type=radio]:checked").val();
+                var text = $(this).find("input[type=text]").val();
+                alternatives.push({text:text, correct:correct});
+                if(correct)radioCheck=true;
+                if(text=='')alternativesCheck = false;
+            });
+
+
+            if(!subject){
+                $('#jumbo').append('<h3>Fag ikke valgt</h3>');
+
+            }else if(!section){
+                $('#jumbo').append('<h3>Tema ikke valgt</h3>');
+            }else if(!questionText){
+                $('#jumbo').append('<h3>Spørsmål tom</h3>');
+            }else if(!alternativesCheck){
+                $('#jumbo').append('<h3>Svar tom</h3>');
+            }else if(!radioCheck){
+                $('#jumbo').append('<h3>Minst et riktig svar </h3>');
+            }
+
+
+
+        }
+
+        function getNextMenu(current){
+            switch (current){
+                case "level":
+                    return "class";
+                case "class":
+                    return "subject";
+                case "subject":
+                    return "section";
+                case "section":
+                    return false;
+            }
+
+        }
+
+
+        function getPrevMenu(current){
+            switch (current){
+                case "class":
+                    return "level";
+                case "subject":
+                    return "class";
+                case "section":
+                    return "subject";
+                case "level":
+                    return false;
+            }
+
+        }
+
+
+
+
+        queryDB();
+    </script>
+
+
+
+</head>
+<body>
+
+    <div id="navbar" class="navbar navbar-inverse navbar-fixed-top">
+        <div class="container">
+        <div class="row">
+            <div class="col-md-3">
+                <h3 style="color:white;">StudTest <small>Beta</small></h3>
+            </div>
+            <div class="col-mod-9">
+                <h4 id="muhsin" style="color: #ffffff"></h4>
+            </div>
+
+
+        </div>
+
+
+
+
+
+
+        </div>
+
+
+
+
+    </div>
+
+    <div class="container">
+
+
+
+            <div class="btn-group" id="level"></div>
+
+            <div class="btn-group" id="class"></div>
+
+            <div  class="btn-group" id="subject"></div>
+
+            <div  class="btn-group" id="section"></div>
+
+
+
+
+    </div>
+
+    <div class="container" style="margin-top: 5px;">
+        <div class="jumbotron" id="jumbo">
+        <h2 class="text-center" id="jumboh2">Velg fag</h2>
+
+        <div id="questionform" style="display: none;">
+            <div class="input-group input-group-lg">
+                <input type="text" class="form-control" id="question-text" placeholder="Oppgavetekst">
+                <span class="input-group-addon">?</span>
+            </div>
+
+
+            <div data-toggle="input" style="margin-top: 20px;" id="alternatives">
+
+                <div class="input-group" id="alt1" style="margin-top: 5px;">
+                    <span class="input-group-addon"><input type="radio" name="options" id="alt1opt"></span>
+                    <input type="text" class="form-control" id="alt1text">
+
+                </div>
+
+                <div class="input-group" id="alt2" style="margin-top: 5px;">
+                    <span class="input-group-addon"><input type="radio" name="options" id="alt2opt"></span>
+                    <input type="text" class="form-control" id="alt2text">
+
+
+                </div>
+
+            </div>
+            <button class="btn btn-info btn-lg btn-block" role="button" style="margin-top: 5px;" id="add-new-alt">+</button>
+
+            <div class="input-group input-group-lg" style="margin-top: 25px;">
+                <span class="input-group-addon">*</span>
+                <input type="text" class="form-control" placeholder="Forklaring (valgfritt)" id="description">
+            </div>
+        </div>
+
+        </div>
+
+        <button class="btn btn-primary btn-lg" role="button" style="margin-top: 5px;" onclick="validator();">Lagre</button>
+        <button class="btn btn-warning btn-lg" role="button" style="margin-top: 5px;">Tøm</button>
+
+
+
+
+    </div>
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="js/bootstrap.min.js"></script>
+<script src="js/jquery.twbsPagination.min.js"></script>
+
+</body>
+</html>
+
+
