@@ -77,7 +77,7 @@
         }
 
 
-        function getButtonName(){
+        function getButtonName(current){
             switch (current){
                 case 'level':
                     return 'Nivå';
@@ -109,7 +109,7 @@
 
 
 
-            var buttonName = getButtonName();
+            var buttonName = getButtonName(current);
             $("#"+current).append('<button class="btn btn-default btn-lg dropdown-toggle" type="button" value="'+current+'" id="'+current+'dropdownMenu" data-toggle="dropdown">'+
             buttonName+'<span class="caret"></span></button>');
 
@@ -153,6 +153,9 @@
                             if (id != 'add'+current) {
                                if(current!='section') {
                                    $('#questionform').hide();
+                                   var previi = getNextMenu(current);
+                                   $('#jumboh2').text('Velg '+ getButtonName(previi).toLowerCase());
+                                   $('#jumboh2').show(250);
                                    $('#' + current + 'dropdownMenu').html(name + '<span class="caret"></span>');
                                    globalVar[current].id = id;
                                    current = getNextMenu(current);
@@ -242,8 +245,13 @@
             $('#alternatives div').each(function () {
                 var correct = $(this).find("input[type=radio]:checked").val();
                 var text = $(this).find("input[type=text]").val();
+                if(correct){
+                    radioCheck=true;
+                    correct = 1;
+                }else {
+                    correct = 0;
+                }
                 alternatives.push({text:text, correct:correct});
-                if(correct)radioCheck=true;
                 if(text=='')alternativesCheck = false;
             });
 
@@ -259,6 +267,27 @@
                 $('#jumbo').append('<h3>Svar tom</h3>');
             }else if(!radioCheck){
                 $('#jumbo').append('<h3>Minst et riktig svar </h3>');
+            } else{
+                console.log(alternatives, subject, section, questionText, description);
+
+                var questionObject = {subject: subject, section: section, question:questionText, description:description, alternatives:alternatives };
+
+
+                $.ajax({
+                    url: 'http://folk.ntnu.no/gunaydin/index.php',
+                    type: 'POST',
+                        data: {action:'insertquestion', questions:JSON.stringify(questionObject)},
+                    dataType: 'JSON',
+                    timeout: 5000,
+                    success: function(data) {
+
+                    },
+                    error: function(data){
+                        alert('ikke da');
+
+                    }});
+
+
             }
 
 
@@ -349,7 +378,7 @@
 
     <div class="container" style="margin-top: 5px;">
         <div class="jumbotron" id="jumbo">
-        <h2 class="text-center" id="jumboh2">Velg fag</h2>
+        <h3 class="text-center" id="jumboh2">Bruk menyen over til å velge fag du skal lage spørsmål til. <br> Dersom du ikke finner klassen, faget eller temaet kan du selv legge til disse </h3>
 
         <div id="questionform" style="display: none;">
             <div class="input-group input-group-lg">
